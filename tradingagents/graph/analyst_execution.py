@@ -23,22 +23,23 @@ ANALYST_NODE_SPECS = {
     "order_flow": AnalystNodeSpec("order_flow", "Order Flow Analyst", "Msg Clear Order Flow", "tools_order_flow", "order_flow_report"),
     "macro": AnalystNodeSpec("macro", "Macro Analyst", "Msg Clear Macro", "tools_macro", "macro_report"),
 }
-
+CRYPTO_DEFAULTS = ("market", "sentiment", "news", "onchain", "derivatives", "order_flow", "macro")
 
 def build_analyst_execution_plan(selected_analysts: Iterable[str]) -> AnalystExecutionPlan:
-    specs = []
-    for key in selected_analysts:
+    requested = list(selected_analysts)
+    if "fundamentals" in requested:
+        requested = list(CRYPTO_DEFAULTS)
+    requested = ["sentiment" if key == "social" else key for key in requested]
+    specs, seen = [], set()
+    for key in requested:
+        if key in seen: continue
         spec = ANALYST_NODE_SPECS.get(key)
-        if spec is None:
-            raise ValueError(f"unknown crypto analyst key: {key}")
-        specs.append(spec)
-    if not specs:
-        raise ValueError("at least one analyst must be selected")
+        if spec is None: raise ValueError(f"unknown crypto analyst key: {key}")
+        specs.append(spec); seen.add(key)
+    if not specs: raise ValueError("at least one analyst must be selected")
     return AnalystExecutionPlan(specs)
 
-
-def get_initial_analyst_node(plan):
-    return plan.specs[0].agent_node
+def get_initial_analyst_node(plan): return plan.specs[0].agent_node
 
 class AnalystWallTimeTracker:
     def __init__(self, plan): self.plan, self._started_at, self._wall_times = plan, {}, {}
@@ -55,5 +56,4 @@ class AnalystWallTimeTracker:
 def sync_analyst_tracker_from_chunk(tracker, chunk, now=None):
     current = monotonic() if now is None else now
     for spec in tracker.plan.specs:
-        if chunk.get(spec.report_key):
-            tracker.mark_started(spec.key, current); tracker.mark_completed(spec.key, current)
+        if chunk.get(spec.report_key): tracker.mark_started(spec.key, current); tracker.mark_completed(spec.key, current)
