@@ -1,64 +1,22 @@
-from tradingagents.agents.utils.agent_utils import (
-    get_instrument_context_from_state,
-    get_language_instruction,
-    opponent_argument_or_opening,
-)
-
+from tradingagents.agents.utils.agent_utils import get_instrument_context_from_state, get_language_instruction, opponent_argument_or_opening
 
 def create_bull_researcher(llm):
     def bull_node(state) -> dict:
-        investment_debate_state = state["investment_debate_state"]
-        history = investment_debate_state.get("history", "")
-        bull_history = investment_debate_state.get("bull_history", "")
+        d=state["investment_debate_state"]; history=d.get("history",""); current=opponent_argument_or_opening(d.get("current_response",""),"bear analyst")
+        reports="\n".join([f"Market: {state.get('market_report','')}",f"Sentiment: {state.get('sentiment_report','')}",f"News: {state.get('news_report','')}",f"On-chain: {state.get('onchain_report','')}",f"Derivatives: {state.get('derivatives_report','')}",f"Order flow: {state.get('order_flow_report','')}",f"Macro: {state.get('macro_report','')}"])
+        prompt=f"""You are the Bull Analyst in a crypto investment debate. Build an evidence-based bullish case for the exact crypto asset, using market, sentiment, news, on-chain, derivatives, order-flow and macro evidence. Do not invent missing data. Explicitly counter the bear argument and distinguish facts from assumptions.
 
-        current_response = opponent_argument_or_opening(
-            investment_debate_state.get("current_response", ""), "bear analyst"
-        )
-        market_research_report = state["market_report"]
-        sentiment_report = state["sentiment_report"]
-        news_report = state["news_report"]
-        fundamentals_report = state["fundamentals_report"]
-        instrument_context = get_instrument_context_from_state(state)
-        asset_type = state.get("asset_type", "stock")
-        target_label = "stock" if asset_type == "stock" else "asset"
-        fundamentals_label = (
-            "Company fundamentals report"
-            if asset_type == "stock"
-            else "Asset fundamentals report (may be unavailable for crypto)"
-        )
+{get_instrument_context_from_state(state)}
 
-        prompt = f"""You are a Bull Analyst advocating for investing in the {target_label}. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
+RESEARCH REPORTS:
+{reports}
 
-Key points to focus on:
-- Growth Potential: Highlight the company's market opportunities, revenue projections, and scalability.
-- Competitive Advantages: Emphasize factors like unique products, strong branding, or dominant market positioning.
-- Positive Indicators: Use financial health, industry trends, and recent positive news as evidence.
-- Bear Counterpoints: Critically analyze the bear argument with specific data and sound reasoning, addressing concerns thoroughly and showing why the bull perspective holds stronger merit.
-- Engagement: Present your argument in a conversational style, engaging directly with the bear analyst's points and debating effectively rather than just listing data.
+DEBATE HISTORY:
+{history}
 
-Resources available:
-{instrument_context}
-Market research report: {market_research_report}
-Social media sentiment report: {sentiment_report}
-Latest world affairs news: {news_report}
-{fundamentals_label}: {fundamentals_report}
-Conversation history of the debate: {history}
-Last bear argument: {current_response}
-Use this information to deliver a compelling bull argument, refute the bear's concerns, and engage in a dynamic debate that demonstrates the strengths of the bull position.
-""" + get_language_instruction()
-
-        response = llm.invoke(prompt)
-
-        argument = f"Bull Analyst: {response.content}"
-
-        new_investment_debate_state = {
-            "history": history + "\n" + argument,
-            "bull_history": bull_history + "\n" + argument,
-            "bear_history": investment_debate_state.get("bear_history", ""),
-            "current_response": argument,
-            "count": investment_debate_state["count"] + 1,
-        }
-
-        return {"investment_debate_state": new_investment_debate_state}
-
+LAST BEAR ARGUMENT:
+{current}
+"""+get_language_instruction()
+        response=llm.invoke(prompt); argument=f"Bull Analyst: {response.content}"
+        return {"investment_debate_state":{"history":history+"\n"+argument,"bull_history":d.get("bull_history","")+"\n"+argument,"bear_history":d.get("bear_history",""),"current_response":argument,"count":d["count"]+1}}
     return bull_node
